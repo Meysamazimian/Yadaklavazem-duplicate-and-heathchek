@@ -1,0 +1,31 @@
+{
+  "name": "yadaklavazem-duplicate-and-healthcheck",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Insert-only replica of the Yadaklavazem database + endpoint monitoring dashboard",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "tsc --noEmit",
+    "test": "TS_NODE_TRANSPILE_ONLY=true node --require ts-node/register --test tests/*.test.ts",
+    "cycle": "node dist/cycle.js",
+    "cycle:dev": "ts-node --transpile-only src/cycle.ts"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "knex": "^3.1.0",
+    "mysql2": "^3.9.7",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.12.7",
+    "ts-node-dev": "^2.0.0"
+  }
+}

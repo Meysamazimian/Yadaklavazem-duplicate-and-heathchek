@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>پایش و دوپلیکیت یدک‌لوازم</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <h1>پایش و دوپلیکیت یدک‌لوازم</h1>
+  <div class="actions">
+    <span id="updated" class="muted"></span>
+    <button id="run-now" type="button">اجرای هم‌اکنون</button>
+    <form method="post" action="/logout"><button type="submit" class="ghost">خروج</button></form>
+  </div>
+</header>
+<nav id="tabs">
+  <button data-tab="overview" class="active">خلاصه</button>
+  <button data-tab="endpoints">اندپوینت‌ها</button>
+  <button data-tab="replication">دوپلیکیت دیتابیس</button>
+  <button data-tab="events">رویدادها</button>
+</nav>
+<main>
+  <section id="tab-overview"></section>
+  <section id="tab-endpoints" hidden></section>
+  <section id="tab-replication" hidden></section>
+  <section id="tab-events" hidden></section>
+</main>
+<dialog id="detail"><div id="detail-body"></div><form method="dialog"><button>بستن</button></form></dialog>
+<script src="/app.js"></script>
+</body>
+</html>
