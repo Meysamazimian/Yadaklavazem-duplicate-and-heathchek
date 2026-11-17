@@ -3,7 +3,7 @@ name: CI
 # Type check, tests and build only. The app is paused, so there is no deploy step.
 on:
   push:
-  pull_request:
+    branches: [main]
 
 jobs:
   test:
