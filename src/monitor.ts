@@ -39,14 +39,16 @@ const fetchWithTimeout = async (url: string, init: RequestInit, timeoutMs: numbe
 
 /** Reads the Backend's own OpenAPI specs and returns every parameter-less GET route. */
 async function discover(): Promise<EndpointDef[]> {
-  const { backendUrl, swaggerPath, exclude, timeoutMs } = config.monitor;
+  const { backendUrl, swaggerPath, exclude, timeoutMs, internalToken } = config.monitor;
+  // In production the Backend serves its spec files only to callers holding the internal token.
+  const specInit: RequestInit = internalToken ? { headers: { 'x-internal-token': internalToken } } : {};
   const excluder = exclude ? new RegExp(exclude) : null;
   const found = new Map<string, EndpointDef>();
   let okSpecs = 0;
 
   for (const audience of AUDIENCES) {
     try {
-      const res = await fetchWithTimeout(`${backendUrl}${swaggerPath}/spec/${audience}.json`, {}, timeoutMs);
+      const res = await fetchWithTimeout(`${backendUrl}${swaggerPath}/spec/${audience}.json`, specInit, timeoutMs);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const spec: any = await res.json();
       okSpecs++;

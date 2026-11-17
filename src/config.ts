@@ -21,6 +21,12 @@ const list = (key: string, fallback = ''): string[] =>
     .map((s) => s.trim())
     .filter(Boolean);
 
+/** Tables never copied unless REPLICATE_EXCLUDE says otherwise. */
+export const DEFAULT_REPLICATE_EXCLUDE = ['refresh_tokens', 'otp_codes', 'rate_limits', 'idempotency_keys', 'cache', 'jobs', 'knex_migrations_lock'];
+
+export const MIN_PASSWORD_LENGTH = 12;
+export const MIN_SECRET_LENGTH = 32;
+
 export interface DbConfig {
   host: string;
   port: number;
@@ -59,7 +65,9 @@ export const config = {
   replicate: {
     batchSize: Math.max(10, num('REPLICATE_BATCH_SIZE', 500)),
     maxSeconds: Math.max(10, num('REPLICATE_MAX_SECONDS', 240)),
-    exclude: list('REPLICATE_EXCLUDE', 'cache,knex_migrations_lock'),
+    // Sessions, login codes, rate-limit counters, idempotency keys, cache and queued jobs are worthless as a backup and
+    // would only make the replica a second place to steal them from (DPL-03). REPLICATE_EXCLUDE replaces this list.
+    exclude: list('REPLICATE_EXCLUDE', DEFAULT_REPLICATE_EXCLUDE.join(',')),
     include: list('REPLICATE_INCLUDE'),
     lookback: Math.max(0, num('REPLICATE_LOOKBACK', 1000)),
     fullScanMaxRows: num('FULL_SCAN_MAX_ROWS', 500000),
@@ -81,7 +89,9 @@ export const config = {
 };
 
 /** Returns a list of human readable problems; empty means the configuration is usable. */
-export function validateConfig(): string[] {
+export function validateConfig(
+  c: Pick<typeof config, 'dashboardPassword' | 'sessionSecret' | 'cronKey'> = config
+): string[] {
   const problems: string[] = [];
   if (!source.user || !source.database) problems.push('SRC_DB_USER and SRC_DB_NAME are required');
   if (!target.database) problems.push('DST_DB_NAME is required');
@@ -93,6 +103,13 @@ export function validateConfig(): string[] {
   ) {
     problems.push('DST_DB_NAME must be a different database than SRC_DB_NAME (the replica is written to)');
   }
-  if (!config.dashboardPassword) problems.push('DASHBOARD_PASSWORD is required');
+  // The dashboard sits next to a full copy of the main database (DPL-01).
+  if (c.dashboardPassword.length < MIN_PASSWORD_LENGTH) {
+    problems.push(`DASHBOARD_PASSWORD is required and must be at least ${MIN_PASSWORD_LENGTH} characters`);
+  }
+  if (c.sessionSecret.length < MIN_SECRET_LENGTH) {
+    problems.push(`SESSION_SECRET is required and must be at least ${MIN_SECRET_LENGTH} random characters (e.g. openssl rand -hex 32)`);
+  }
+  if (c.cronKey && c.cronKey.length < MIN_SECRET_LENGTH) problems.push(`CRON_KEY must be at least ${MIN_SECRET_LENGTH} characters (or empty to turn /cron/run off)`);
   return problems;
 }

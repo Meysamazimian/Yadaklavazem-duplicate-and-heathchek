@@ -45,7 +45,7 @@ Stack مثل بک‌اند: Node + TypeScript + Express + Knex (mysql2).
 3. **Setup Node.js App**: Application root = همان پوشه، Startup file = `server.js`، نسخه‌ی Node ‏18 به بالا. متغیرهای محیطی را از `.env.example` وارد کنید (یا فایل `.env` بسازید). پس از ذخیره، Restart کنید.
 4. داشبورد روی همان دامنه/ساب‌دامنه‌ای که برای اپ تعیین کرده‌اید باز می‌شود؛ با `DASHBOARD_PASSWORD` وارد شوید.
 5. **کرون (توصیه می‌شود):** cPanel معمولاً پروسس بی‌کار را می‌خواباند و زمان‌بند داخلی هم با آن می‌خوابد. یک Cron Job هر ۵ دقیقه اضافه کنید، یکی از دو روش:
-   - هیت: `*/5 * * * * curl -s "https://YOUR-DOMAIN/cron/run?key=CRON_KEY" >/dev/null` (با `CRON_KEY` تنظیم‌شده؛ پاسخ فوراً `202` است و چرخه در پس‌زمینه اجرا می‌شود؛ `&force=1` برای اجرای فوری، `&wait=1` برای منتظر ماندن)
+   - هیت: `*/5 * * * * curl -s -H "x-cron-key: <CRON_KEY>" https://YOUR-DOMAIN/cron/run >/dev/null` (با `CRON_KEY` تنظیم‌شده؛ پاسخ فوراً `202` است و چرخه در پس‌زمینه اجرا می‌شود؛ `?force=1` برای اجرای فوری، `?wait=1` برای منتظر ماندن). کلید فقط از هدر `x-cron-key` پذیرفته می‌شود؛ `?key=` جواب 404 می‌گیرد، چون کلیدِ داخل نشانی در لاگ دسترسی هاست می‌ماند.
    - مستقیم: `*/5 * * * * cd ~/healthcheck && /path/to/node dist/cycle.js` (نیاز به `.env` در همان پوشه؛ `--force` برای نادیده‌گرفتن فاصله)
    
    اگر فقط کرون را می‌خواهید `ENABLE_SCHEDULER=false` بگذارید. اجرای هم‌زمان هر دو بی‌خطر است.
@@ -57,14 +57,19 @@ Stack مثل بک‌اند: Node + TypeScript + Express + Knex (mysql2).
 | --- | --- |
 | `SRC_DB_*` | دیتابیس اصلی (فقط خواندن) |
 | `DST_DB_*` | دیتابیس کپی (باید با مبدأ فرق داشته باشد؛ در غیر این صورت اپ بالا نمی‌آید). خالی‌بودن host/user/password یعنی همان مقدار `SRC_*` |
-| `DASHBOARD_PASSWORD` | رمز داشبورد (الزامی) |
+| `DASHBOARD_PASSWORD` | رمز داشبورد (الزامی، حداقل ۱۲ کاراکتر) |
+| `SESSION_SECRET` | راز امضای نشست (الزامی، حداقل ۳۲ کاراکتر تصادفی، مثلاً `openssl rand -hex 32`). بدون آن اپ بالا نمی‌آید |
 | `CYCLE_INTERVAL_MINUTES` | فاصله‌ی چرخه، پیش‌فرض ۵ |
-| `CRON_KEY` | کلید `/cron/run` (خالی = غیرفعال) |
+| `CRON_KEY` | کلید `/cron/run` (خالی = غیرفعال؛ در غیر این صورت حداقل ۳۲ کاراکتر) |
 | `BACKEND_URL` | آدرس بک‌اند از دید همین سرور |
 | `INTERNAL_PROXY_TOKEN` | همان مقدار بک‌اند |
 | `MONITOR_SHOP_HOST` | هاست یک فروشگاه واقعی برای مسیرهای فروشگاهی |
-| `REPLICATE_EXCLUDE` / `REPLICATE_INCLUDE` | جدول‌هایی که کپی نشوند / فقط همین‌ها کپی شوند |
+| `REPLICATE_EXCLUDE` / `REPLICATE_INCLUDE` | جدول‌هایی که کپی نشوند / فقط همین‌ها کپی شوند. پیش‌فرض `REPLICATE_EXCLUDE`: `refresh_tokens,otp_codes,rate_limits,idempotency_keys,cache,jobs,knex_migrations_lock` |
 | `RETENTION_DAYS` | نگهداری تاریخچه‌ی مانیتورینگ (پیش‌فرض ۱۴ روز) |
+
+**چرا این جدول‌ها کپی نمی‌شوند:** نشست‌ها، کدهای ورود، شمارنده‌های محدودیت نرخ، کلیدهای idempotency، cache و صف کارها ارزش پشتیبان ندارند و کپی‌شان فقط جای دومی برای دزدیده‌شدن نشست و کد ورود می‌سازد. دیتابیس دوم هم کپی بقیه‌ی داده‌هاست، پس باید همان محافظت دیتابیس اصلی را داشته باشد: کاربر MySQL جدا با رمز جدا، و بدون دسترسی از راه دور (Remote MySQL خاموش).
+
+داشبورد هدر CSP سخت‌گیر می‌فرستد و ورود را برای هر IP بعد از ۵ تلاش ناموفق، و برای همه بعد از ۲۰ تلاش ناموفق در ۱۵ دقیقه، ۱۵ دقیقه قفل می‌کند.
 
 جدول‌های خود اپ با پیشوند `__dup_` و `__mon_` در دیتابیس مقصد ساخته می‌شوند. فقط تاریخچه‌ی مانیتورینگ قدیمی (بیش از `RETENTION_DAYS`) پاک می‌شود؛ داده‌ی کپی‌شده هرگز.
 
@@ -80,3 +85,15 @@ npm run lint             # tsc --noEmit
 npm test
 npm run build
 ```
+
+## گیت‌های امنیتی CI
+
+workflow `.github/workflows/ci.yml` روی هر push و PR این‌ها را چک می‌کند:
+
+- **تست و تایپ**: `npm run lint` و `npm test`.
+- **وابستگی‌ها** (`scripts/ci/audit.js`): هشدار high یا critical در `npm audit --omit=dev` قرمز می‌شود. استثنا فقط در `security/audit-allowlist.json` با شناسه‌ی GHSA، دلیل و تاریخ انقضا (حداکثر ۹۰ روز).
+- **workflowها** (`scripts/ci/pinned-actions.js`): هر action با sha کامل commit سنجاق شده و هر workflow `permissions` صریح دارد.
+- **رازها** (job `secrets`، gitleaks): کل تاریخچه‌ی git.
+- **تحلیل ایستا** (job `sast`، `scripts/ci/semgrep.sh`): قاعده‌های امنیتی Semgrep از یک commit ثابت. یافته‌ی اشتباهی فقط روی همان خط با `// nosemgrep: <rule-id> -- دلیل` ساکت می‌شود.
+
+این ریپو دیپلوی خودکار ندارد؛ فقط کدی را روی هاست بگذارید که CI آن سبز است. PRهای Dependabot (`.github/dependabot.yml`) را هم فقط وقتی merge کنید که CI سبز است.
