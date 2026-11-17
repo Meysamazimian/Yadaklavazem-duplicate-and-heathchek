@@ -1,0 +1,6 @@
+# Secret scan settings (SCN-04). The default gitleaks rules stay on. Allow a made-up test value only by its exact
+# text; never a whole folder.
+title = "Yadaklavazem Duplicate and Healthcheck"
+
+[extend]
+useDefault = true

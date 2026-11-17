@@ -37,12 +37,15 @@ async function listSourceTables(): Promise<string[]> {
       [config.source.database]
     )
   )[0] as Array<{ name: string }>;
-  const { include, exclude } = config.replicate;
-  return rows
-    .map((r) => r.name)
+  return tablesToCopy(rows.map((r) => r.name));
+}
+
+/** Which source tables are copied: never our own, only REPLICATE_INCLUDE when set, never REPLICATE_EXCLUDE. */
+export function tablesToCopy(names: string[], opts: { include: string[]; exclude: string[] } = config.replicate): string[] {
+  return names
     .filter((n) => !isOwnTable(n))
-    .filter((n) => (include.length ? include.includes(n) : true))
-    .filter((n) => !exclude.includes(n));
+    .filter((n) => (opts.include.length ? opts.include.includes(n) : true))
+    .filter((n) => !opts.exclude.includes(n));
 }
 
 async function listTargetTables(): Promise<Set<string>> {

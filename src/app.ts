@@ -5,6 +5,9 @@ import { clearSession, isAuthenticated, loginBlocked, loginPage, recordLoginFail
 import apiRoutes from './api';
 import { runIfDue, runCycle } from './cycle';
 
+export const CSP =
+  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+
 export function createApp(): express.Express {
   const app = express();
   app.disable('x-powered-by');
@@ -16,6 +19,9 @@ export function createApp(): express.Express {
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('Cache-Control', 'no-store');
+    // The dashboard builds its HTML with innerHTML (always through esc()); this stops any injected script if one
+    // esc() is ever missed (DPL-04). The login page has inline style, hence 'unsafe-inline' for styles only.
+    res.setHeader('Content-Security-Policy', CSP);
     next();
   });
 
@@ -24,9 +30,10 @@ export function createApp(): express.Express {
     res.json({ ok: true });
   });
 
-  // cPanel cron: `curl -s "https://host/cron/run?key=CRON_KEY"` every few minutes. Responds at once; the cycle runs in the background.
+  // cPanel cron: `curl -s -H "x-cron-key: <CRON_KEY>" https://host/cron/run` every few minutes. Responds at once; the cycle
+  // runs in the background. The key is read only from the header: one in the address stays in access logs (DPL-02).
   const cron = (req: express.Request, res: express.Response) => {
-    const provided = String(req.query.key || req.headers['x-cron-key'] || '');
+    const provided = String(req.headers['x-cron-key'] || '');
     if (!config.cronKey || !safeEqual(provided, config.cronKey)) {
       res.status(404).json({ ok: false });
       return;

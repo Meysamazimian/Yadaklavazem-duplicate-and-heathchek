@@ -1,5 +1,5 @@
-process.env.DASHBOARD_PASSWORD = 'pw';
-process.env.SESSION_SECRET = 'test-secret';
+process.env.DASHBOARD_PASSWORD = 'dashboard-password';
+process.env.SESSION_SECRET = 'test-secret-'.padEnd(40, 'x');
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
