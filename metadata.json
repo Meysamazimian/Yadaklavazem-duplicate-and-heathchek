@@ -1,0 +1,5 @@
+{
+  "name": "Yadaklavazem Duplicate & Health-check",
+  "description": "Insert-only MySQL database replication and OpenAPI endpoint health monitoring dashboard for Yadaklavazem.",
+  "requestFramePermissions": []
+}

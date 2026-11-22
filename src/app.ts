@@ -13,16 +13,45 @@ export function createApp(): express.Express {
   app.use(express.json({ limit: '4kb' }));
   app.use((_req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('Cache-Control', 'no-store');
     next();
   });
 
   // Unauthenticated liveness probe (reveals nothing).
-  app.get('/healthz', (_req, res) => {
+  app.get(['/healthz', '/health', '/api/health'], (_req, res) => {
     res.json({ ok: true });
   });
+
+  if (config.useMockDb) {
+    const demoSpecs: Record<string, Record<string, any>> = {
+      storefront: {
+        '/api/v1/storefront/products': { get: {} },
+        '/api/v1/storefront/categories': { get: {} },
+        '/api/v1/storefront/brands': { get: {} },
+      },
+      admin: {
+        '/api/v1/admin/orders': { get: { security: [{ staffAuth: [] }] } },
+        '/api/v1/admin/inventory': { get: { security: [{ staffAuth: [] }] } },
+      },
+      'admin-sales': {
+        '/api/v1/sales/invoices': { get: { security: [{ staffAuth: [] }] } },
+      },
+      platform: {
+        '/api/v1/platform/tenants': { get: { security: [{ platformAuth: [] }] } },
+      },
+    };
+    app.get('/api/internal/swagger-docs/spec/:audience.json', (req, res) => {
+      const paths = demoSpecs[req.params.audience] || {};
+      res.json({ openapi: '3.0.0', paths });
+    });
+    app.get('/api/v1/storefront/*', (_req, res) => {
+      res.json({ ok: true, items: [] });
+    });
+    app.get('/api/v1/*', (_req, res) => {
+      res.status(401).json({ ok: false, error: 'unauthorized' });
+    });
+  }
 
   // cPanel cron: `curl -s "https://host/cron/run?key=CRON_KEY"` every few minutes. Responds at once; the cycle runs in the background.
   const cron = (req: express.Request, res: express.Response) => {
@@ -56,7 +85,8 @@ export function createApp(): express.Express {
       res.status(401).type('html').send(loginPage('رمز عبور نادرست است.'));
       return;
     }
-    setSession(res, config.cookieSecure);
+    const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
+    setSession(res, config.cookieSecure && isHttps);
     res.redirect(303, '/');
   });
 

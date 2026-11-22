@@ -40,7 +40,13 @@ const readCookie = (req: Request, name: string): string | undefined => {
 export const isAuthenticated = (req: Request): boolean => verifyToken(readCookie(req, COOKIE));
 
 export const setSession = (res: Response, secure: boolean): void => {
-  res.cookie(COOKIE, issueToken(), { httpOnly: true, sameSite: 'strict', secure, maxAge: SESSION_HOURS * 3600_000, path: '/' });
+  res.cookie(COOKIE, issueToken(), {
+    httpOnly: true,
+    sameSite: secure ? 'none' : 'lax',
+    secure,
+    maxAge: SESSION_HOURS * 3600_000,
+    path: '/',
+  });
 };
 export const clearSession = (res: Response): void => {
   res.clearCookie(COOKIE, { path: '/' });
@@ -65,6 +71,11 @@ export const recordLoginFailure = (ip: string): void => {
 
 export const requireAuth = (req: Request, res: Response, next: NextFunction): void => {
   if (isAuthenticated(req)) return next();
+  if (config.useMockDb && req.query.autostart === '1') {
+    const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
+    setSession(res, config.cookieSecure && isHttps);
+    return next();
+  }
   if (req.originalUrl.startsWith('/api/')) {
     res.status(401).json({ ok: false, error: 'unauthenticated' });
     return;
@@ -80,9 +91,10 @@ body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0f172
 form{background:#1e293b;padding:32px;border-radius:14px;width:min(340px,90vw);display:grid;gap:14px;box-shadow:0 10px 30px #0006}
 h1{margin:0;font-size:18px}input,button{font:inherit;padding:11px 12px;border-radius:8px;border:1px solid #475569}
 input{background:#0f172a;color:inherit;direction:ltr;text-align:left}button{background:#2563eb;color:#fff;border:0;cursor:pointer}
-.err{color:#fca5a5;font-size:13px}
+.err{color:#fca5a5;font-size:13px}.hint{color:#94a3b8;font-size:12px}
 </style></head><body>
 <form method="post" action="/login"><h1>داشبورد پایش و دوپلیکیت</h1>
 ${error ? `<div class="err">${error}</div>` : ''}
-<input type="password" name="password" placeholder="رمز عبور" autofocus required>
+${config.useMockDb ? `<div class="hint">محیط پیش‌نمایش فعال است (رمز عبور پیش‌فرض: <code>admin</code>)</div>` : ''}
+<input type="password" name="password" aria-label="رمز عبور" placeholder="رمز عبور" value="${config.useMockDb ? 'admin' : ''}" autofocus required>
 <button type="submit">ورود</button></form></body></html>`;

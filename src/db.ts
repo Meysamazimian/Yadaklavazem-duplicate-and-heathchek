@@ -1,5 +1,6 @@
 import { knex, Knex } from 'knex';
 import { config, DbConfig } from './config';
+import { createMockKnexPair } from './mock-db';
 
 const make = (c: DbConfig): Knex =>
   knex({
@@ -24,10 +25,24 @@ const make = (c: DbConfig): Knex =>
 let srcDb: Knex | null = null;
 let dstDb: Knex | null = null;
 
+function initMockIfNeeded(): void {
+  if (config.useMockDb && (!srcDb || !dstDb)) {
+    const pair = createMockKnexPair();
+    srcDb = pair.src;
+    dstDb = pair.dst;
+  }
+}
+
 /** Source (main) database. This app only ever reads from it. */
-export const src = (): Knex => (srcDb ??= make(config.source));
+export const src = (): Knex => {
+  initMockIfNeeded();
+  return (srcDb ??= make(config.source));
+};
 /** Replica database. Holds the copied tables plus this app's own `__dup_*` / `__mon_*` tables. */
-export const dst = (): Knex => (dstDb ??= make(config.target));
+export const dst = (): Knex => {
+  initMockIfNeeded();
+  return (dstDb ??= make(config.target));
+};
 
 export async function closeDbs(): Promise<void> {
   await Promise.allSettled([srcDb?.destroy(), dstDb?.destroy()]);

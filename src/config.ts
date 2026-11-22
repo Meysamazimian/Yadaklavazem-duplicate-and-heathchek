@@ -29,12 +29,14 @@ export interface DbConfig {
   database: string;
 }
 
+const useMockDb = !str('SRC_DB_NAME') && !str('DST_DB_NAME');
+
 const source: DbConfig = {
   host: str('SRC_DB_HOST', '127.0.0.1'),
   port: num('SRC_DB_PORT', 3306),
-  user: str('SRC_DB_USER'),
+  user: str('SRC_DB_USER', useMockDb ? 'demo_src' : ''),
   password: process.env.SRC_DB_PASSWORD ?? '',
-  database: str('SRC_DB_NAME'),
+  database: str('SRC_DB_NAME', useMockDb ? 'yadak_main' : ''),
 };
 
 const target: DbConfig = {
@@ -42,14 +44,21 @@ const target: DbConfig = {
   port: num('DST_DB_PORT', source.port),
   user: str('DST_DB_USER', source.user),
   password: str('DST_DB_PASSWORD') !== '' ? process.env.DST_DB_PASSWORD ?? '' : source.password,
-  database: str('DST_DB_NAME'),
+  database: str('DST_DB_NAME', useMockDb ? 'yadak_replica' : ''),
 };
 
+const resolvedPort = str('APP_PORT')
+  ? num('APP_PORT', 3000)
+  : str('DEFAULT_APP_PORT')
+  ? num('DEFAULT_APP_PORT', 3000)
+  : num('PORT', 3000);
+
 export const config = {
-  port: num('PORT', 3100),
+  port: resolvedPort,
+  useMockDb,
   source,
   target,
-  dashboardPassword: str('DASHBOARD_PASSWORD'),
+  dashboardPassword: str('DASHBOARD_PASSWORD', useMockDb ? 'admin' : ''),
   sessionSecret: str('SESSION_SECRET'),
   cookieSecure: bool('COOKIE_SECURE', true),
   trustProxy: str('TRUST_PROXY', 'loopback, linklocal, uniquelocal'),
@@ -66,7 +75,7 @@ export const config = {
     countRows: bool('REPLICATE_COUNT_ROWS', true),
   },
   monitor: {
-    backendUrl: str('BACKEND_URL', 'http://127.0.0.1:3000').replace(/\/+$/, ''),
+    backendUrl: str('BACKEND_URL', `http://127.0.0.1:${resolvedPort}`).replace(/\/+$/, ''),
     internalToken: str('INTERNAL_PROXY_TOKEN'),
     shopHost: str('MONITOR_SHOP_HOST'),
     swaggerPath: str('BACKEND_SWAGGER_PATH', '/api/internal/swagger-docs'),
