@@ -1,0 +1,54 @@
+name: Security weekly
+
+# MON-04: once a week on main, the dependency audit and a secret scan of the whole history. No deploy here.
+# TEMP-OFF: the weekly schedule is commented out to save Actions minutes; run it by hand from the Actions tab until
+# it is turned back on. Remove the "# TEMP-OFF " prefix below to restore the schedule.
+# GitHub turns off the schedule of a repository with no commit for 60 days: turn it on again in the Actions tab
+# (the monthly review, REV-01, looks at this).
+on:
+# TEMP-OFF   schedule:
+# TEMP-OFF     - cron: '30 3 * * 6'
+  workflow_dispatch:
+
+concurrency:
+  group: security-weekly
+  cancel-in-progress: true
+
+# Least privilege: every job can only read the repository unless it says otherwise.
+permissions:
+  contents: read
+
+jobs:
+  dependencies-and-secrets:
+    name: Dependency audit and secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Dependency audit
+        run: node scripts/ci/audit.js
+
+      - name: Secret scan (whole history)
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
+          tar -xzf gitleaks.tgz gitleaks
+          ./gitleaks git --redact --exit-code 1 --no-banner --config .gitleaks.toml .
